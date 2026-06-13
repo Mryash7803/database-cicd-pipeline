@@ -1,0 +1,50 @@
+name: Database CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  migrate-staging:
+    name: Apply migrations to staging
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18.4
+        env:
+          POSTGRES_USER: devops
+          POSTGRES_PASSWORD: devops123
+          POSTGRES_DB: stagingdb
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Flyway migrations on staging
+        run: |
+          docker run --rm \
+            --network host \
+            -v ${{ github.workspace }}/migrations:/flyway/sql:Z \
+            flyway/flyway \
+            -url=jdbc:postgresql://localhost:5432/stagingdb \
+            -user=devops \
+            -password=devops123 \
+            migrate
+
+  migrate-production:
+    name: Apply migrations to production
+    runs-on: ubuntu-latest
+    needs: migrate-staging
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Flyway migrations on production
+        run: |
+          echo "Production migration command will run here"
